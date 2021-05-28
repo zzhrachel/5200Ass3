@@ -1,0 +1,153 @@
+# Set-up
+```{r loading-package}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(AER)
+library(car)
+library(ivreg)
+library(writexl)
+```
+
+
+# Question 1
+
+## IV Estimation
+
+First, read the data
+
+```{r q1}
+
+HE_raw <- read_xlsx("HEdata.xls",col_names =  TRUE)
+
+data_cleaning <- function(df){
+  df1 <- pivot_longer(df,
+                             cols = `1971`:`2013`,
+                             names_to = "year",
+                             values_to = deparse(substitute(df)))
+  df1$year <- as.integer(df1$year)
+  colnames(df1)[1] <- "country"
+  return(df1)
+}
+
+HE <- data_cleaning(HE_raw)
+
+lhe<-HE%>%
+  mutate(lhe=log(HE_raw))
+# Take the log of the health expenditure 
+
+lhe_new<-lhe%>%
+  group_by(country)%>%
+  mutate(diff1=lhe-lag(lhe,n=1))%>%
+  # Calculate (Y_it-Y_i,t-1)
+  mutate(diff2=lag(lhe,n=1)-lag(lhe,n=2))%>%
+  # Calculate (Y_i,t-1-Y_i,t-2)
+  mutate(lag2=lag(lhe,n=2))%>%
+  # Get the IV variable
+  as.data.frame()
+
+write_xlsx(lhe_new,"lhe_new.xlsx")
+# Rewrite the data into the new excel file
+# Specify the variable into three new dataset and reload it. 
+
+x<-read_xlsx("diff2.xlsx",col_names = TRUE)%>%
+  as.matrix()
+# Remove the NA variable
+x[is.na(x)] <- 0
+x
+
+y<-read_xlsx("lhe_new.xlsx",range = "Sheet1!B1:S44", col_names =  TRUE)%>%
+  as.matrix()
+# Remove the NA variable
+y[is.na(y)] <- 0
+y
+
+iv<-read_xlsx("lag2.xlsx",col_names = TRUE)%>%
+  as.matrix()
+# Remove the NA variable
+iv[is.na(iv)] <- 0
+iv
+```
+
+$$\hat \beta_{IV}=(z'x)^{-1}z'y$$
+Estimate $\hat \beta_{IV}$ for each individual by running the instrument regression. 
+
+```{r coefficient1}
+
+# betahat = rep(0,18)
+# alphahat = rep(0,18)
+
+# for(i in 1:18) {
+#  betahat[i] = ivreg(y[,1]~ x[,1]|iv[,1])$coefficient
+#}
+
+model1<-ivreg(y[,1] ~ x[,1]|iv[,1])
+model2<-ivreg(y[,2] ~ x[,2]|iv[,2])
+model3<-ivreg(y[,3] ~ x[,3]|iv[,3])
+model4<-ivreg(y[,4] ~ x[,4]|iv[,4])
+model5<-ivreg(y[,5] ~ x[,5]|iv[,5])
+model6<-ivreg(y[,6] ~ x[,6]|iv[,6])
+model7<-ivreg(y[,7] ~ x[,7]|iv[,7])
+model8<-ivreg(y[,8] ~ x[,8]|iv[,8])
+model9<-ivreg(y[,9] ~ x[,9]|iv[,9])
+model10<-ivreg(y[,10] ~ x[,10]|iv[,10])
+model11<-ivreg(y[,11] ~ x[,11]|iv[,11])
+model12<-ivreg(y[,12] ~ x[,12]|iv[,12])
+model13<-ivreg(y[,13] ~ x[,13]|iv[,13])
+model14<-ivreg(y[,14] ~ x[,14]|iv[,14])
+model15<-ivreg(y[,15] ~ x[,15]|iv[,15])
+model16<-ivreg(y[,16] ~ x[,16]|iv[,16])
+model17<-ivreg(y[,17] ~ x[,17]|iv[,17])
+model18<-ivreg(y[,18] ~ x[,18]|iv[,18])
+model1[["coefficients"]]
+model2[["coefficients"]]
+model3[["coefficients"]]
+model4[["coefficients"]]
+model5[["coefficients"]]
+model6[["coefficients"]]
+model7[["coefficients"]]
+model8[["coefficients"]]
+model9[["coefficients"]]
+model10[["coefficients"]]
+model11[["coefficients"]]
+model12[["coefficients"]]
+model13[["coefficients"]]
+model14[["coefficients"]]
+model15[["coefficients"]]
+model16[["coefficients"]]
+model17[["coefficients"]]
+model18[["coefficients"]]
+betaiv<-c(0.772242890,-0.81721623, 0.30715277,-0.12060251 ,-0.69922045,-1.51441208 ,-0.78269215,0.33135539 ,-0.46033898 ,0.84857536,0.07095469,0.29665780,-1.4760100 ,8.1146494,-2.3499409 ,0.41263995,0.4173311 ,-4.0617747)
+
+alphaiv<-c(0.007590906,0.06832381,0.01792457,0.02380798,0.05813394,0.07068287 ,0.05806478,0.03000329,0.05944134 ,0.01346333 ,0.03028019 , 0.01907567,0.1014678 ,-0.3601497,  0.1297581,0.01809025, 0.0241777  , 0.1976452)
+
+```
+
+
+Plot $\hat \beta_{iIV}$ and $\hat \alpha_{iIV}$ 
+```{r plot1}
+plot(betaiv)
+```
+
+```{r plot2}
+plot(alphaiv)
+```
+# Question 2
+```{r data-read}
+GDP_raw <- read_xlsx("GDPdata.xlsx",range = "Sheet1!B1:S44", col_names =  TRUE)
+x_it<- log(GDP_raw)
+x_tilde = x_it - colMeans(x_it)
+
+timeframe <- seq(1,43)
+timeframe <- matrix(timeframe,nrow=43,ncol=18,byrow=TRUE)%>%
+  as.data.frame()
+t_tilde = timeframe-colMeans(timeframe)
+
+thetahat = rep(0,18)
+for (i in c(1:18)) {
+  thetahat[i] = lm(x_tilde[,i] ~ 0 + t_tilde[,i])$coefficient
+}
+
+plot(thetahat)
+```
+
